@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client'
 import authRoute from "./routes/authRoute.js";
+import cors from "cors";
 
 
 const app = express();
@@ -9,6 +10,7 @@ const prisma = new PrismaClient();
 
 dotenv.config();
 app.use(express.json());
+app.use(cors({ origin: '*' }));
 
 const PORT = process.env.PORT;
 
