@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { addPhoto, getAllPhotos } from '../controllers/photosController.js'
+import { addPhoto, deletePhoto, getAllPhotos, renamePhoto } from '../controllers/photosController.js'
 import { checkAuth } from '../middleware/checkAuth.js'
 
 const router = Router()
@@ -9,5 +9,11 @@ router.post('/addPhoto', checkAuth, addPhoto)
 
 //@ts-ignore
 router.get('/getAllPhotos', checkAuth, getAllPhotos)
+
+//@ts-ignore
+router.post('/deletePhoto', checkAuth, deletePhoto)
+
+//@ts-ignore
+router.put('/renamePhoto', checkAuth, renamePhoto)
 
 export default router

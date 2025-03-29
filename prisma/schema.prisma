@@ -14,25 +14,40 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  name      String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  photos    Photo[]
+  id         Int         @id @default(autoincrement())
+  name       String
+  email      String      @unique
+  avatar     String
+  password   String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  photos     Photo[]
+  favourites Favourite[]
 
   @@map("users")
 }
 
 model Photo {
+  id         Int         @id @default(autoincrement())
+  userId     Int
+  name       String
+  url        String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  user       User        @relation(fields: [userId], references: [id])
+  favourites Favourite[]
+
+  @@map("photos")
+}
+
+model Favourite {
   id        Int      @id @default(autoincrement())
   userId    Int
-  url       String
+  photoId   Int
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+  photo     Photo    @relation(fields: [photoId], references: [id])
 
-  user User @relation(fields: [userId], references: [id])
-
-  @@map("photos") 
+  @@unique([userId, photoId])
+  @@map("favourites")
 }

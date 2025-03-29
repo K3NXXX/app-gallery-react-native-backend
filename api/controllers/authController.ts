@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 export const register = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, avatar } = req.body;
 
     const isUsed = await prisma.user.findUnique({
       where: { email },
@@ -25,6 +25,7 @@ export const register = async (req: Request, res: Response): Promise<Response> =
         name: name,
         email,
         password: hashPassword,
+		avatar: avatar,
       },
     });
 
@@ -188,3 +189,81 @@ export const login = async (req: Request, res: Response): Promise<Response> => {
 	}
   };
   
+
+  export const updateAvatar = async (req: AuthRequest, res: Response): Promise<Response> => {
+	try {
+	  const { url } = req.body;
+	  const userId = req.userId;
+  
+	  if (!userId) {
+		return res.status(401).json({ message: 'Unauthorized' });
+	  }
+  
+	  const numericUserId = Number(userId);
+	  if (isNaN(numericUserId)) {
+		return res.status(400).json({ message: 'Invalid user ID format' });
+	  }
+  
+	  const user = await prisma.user.findUnique({
+		where: { id: numericUserId },
+	  });
+  
+	  if (!user) {
+		return res.status(404).json({ message: 'No such user exists' });
+	  }
+  
+	  if (!url) {
+		return res.status(400).json({ message: 'Avatar URL is required' });
+	  }
+  
+	  const updatedUser = await prisma.user.update({
+		where: { id: numericUserId },
+		data: { avatar: url },
+	  });
+  
+	  return res.status(200).json({
+		user: updatedUser,
+		message: 'Avatar updated successfully',
+	  });
+	} catch (error) {
+	  console.error(error);
+	  return res.status(500).json({ message: 'Failed to update avatar' });
+	}
+  };
+  
+
+  export const deleteAvatar = async (req: AuthRequest, res: Response): Promise<Response> => {
+	try {
+	  const userId = req.userId;
+  
+	  if (!userId) {
+		return res.status(401).json({ message: 'Unauthorized' });
+	  }
+  
+	  const numericUserId = Number(userId);
+	  if (isNaN(numericUserId)) {
+		return res.status(400).json({ message: 'Invalid user ID format' });
+	  }
+  
+	  const user = await prisma.user.findUnique({
+		where: { id: numericUserId },
+	  });
+  
+	  if (!user) {
+		return res.status(404).json({ message: 'No such user exists' });
+	  }
+  
+	  const updatedUser = await prisma.user.update({
+		where: { id: numericUserId },
+		data: { avatar: '' },
+	  });
+  
+	  return res.status(200).json({
+		user: updatedUser,
+		message: 'Avatar deleted successfully',
+	  });
+	} catch (error) {
+	  console.error(error);
+	  return res.status(500).json({ message: 'Failed to delete avatar' });
+	}
+  };
