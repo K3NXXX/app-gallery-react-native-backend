@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -23,19 +17,21 @@ model User {
   updatedAt  DateTime    @updatedAt
   photos     Photo[]
   favourites Favourite[]
+  albums     Album[]
 
   @@map("users")
 }
 
 model Photo {
-  id         Int         @id @default(autoincrement())
+  id         Int          @id @default(autoincrement())
   userId     Int
   name       String
   url        String
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  user       User        @relation(fields: [userId], references: [id])
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  user       User         @relation(fields: [userId], references: [id])
   favourites Favourite[]
+  albums     AlbumPhoto[]
 
   @@map("photos")
 }
@@ -50,4 +46,28 @@ model Favourite {
 
   @@unique([userId, photoId])
   @@map("favourites")
+}
+
+model Album {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String
+  imageUrl    String
+  createdAt   DateTime     @default(now())
+  userId      Int
+  user        User         @relation(fields: [userId], references: [id])
+  photos      AlbumPhoto[]
+
+  @@map("albums")
+}
+
+model AlbumPhoto {
+  albumId Int
+  photoId Int
+  isCover Boolean @default(false)
+  album   Album   @relation(fields: [albumId], references: [id])
+  photo   Photo   @relation(fields: [photoId], references: [id])
+
+  @@id([albumId, photoId])
+  @@map("album_photos")
 }

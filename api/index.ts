@@ -5,6 +5,7 @@ import express from 'express'
 import os from 'os'
 import authRoute from './routes/authRoute.js'
 import favouritesRoute from './routes/favouritesRoute.js'
+import albumsRoute from './routes/albumsRoute.js'
 import photosRoute from './routes/photosRoute.js'
 
 const app = express()
@@ -29,6 +30,7 @@ prisma
 
 app.use('/auth', authRoute)
 app.use('/photos', photosRoute)
+app.use('/albums', albumsRoute)
 app.use('/favourites', favouritesRoute)
 
 app.get('/', (req: any, res: any) => res.send('Server is running'))
@@ -41,7 +43,6 @@ function getIPAddress(): string {
 		if (!iface) continue
 		for (const details of iface) {
 			if (details.family === 'IPv4' && !details.internal) {
-				// Переконаємося, що це локальна IP-адреса
 				if (
 					details.address.startsWith('192.168.') ||
 					details.address.startsWith('10.')
