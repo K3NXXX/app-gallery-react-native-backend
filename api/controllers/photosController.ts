@@ -59,7 +59,7 @@ export const getAllPhotos = async (req: AuthRequest, res: Response) => {
 
 export const deletePhoto = async (req: AuthRequest, res: Response) => {
   try {
-    const { photoId } = req.body; 
+    const { photoId } = req.body; // Тільки photoId для видалення
     const userId = req.userId;
 
     if (!photoId) {
@@ -67,7 +67,7 @@ export const deletePhoto = async (req: AuthRequest, res: Response) => {
     }
 
     const photo = await prisma.photo.findUnique({
-      where: { id: Number(photoId) }, 
+      where: { id: Number(photoId) },
     });
 
     if (!photo) {
@@ -78,20 +78,34 @@ export const deletePhoto = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: 'You are not authorized to delete this photo.' });
     }
 
+    // Перевірка наявності фото в альбомах
+    const albumPhotos = await prisma.albumPhoto.findMany({
+      where: { photoId: Number(photoId) },
+    });
+
+    if (albumPhotos.length > 0) {
+      // Якщо фото є в альбомі, видаляємо його з альбомів
+      await prisma.albumPhoto.deleteMany({
+        where: { photoId: Number(photoId) },
+      });
+    }
+
+    // Видаляємо фото з таблиці favourites, якщо є
     await prisma.favourite.deleteMany({
       where: { photoId: Number(photoId) },
     });
 
+    // Тепер видаляємо фото з колекції "Home"
     await prisma.photo.delete({
       where: { id: Number(photoId) },
     });
 
-    return res.status(200).json({ message: 'Photo deleted successfully.' });
+    return res.status(200).json({ message: 'Photo deleted successfully from Home and albums.' });
   } catch (error) {
     console.error('Error deleting photo:', error);
     return res.status(500).json({ message: 'Error deleting photo.' });
   }
-}
+};
 
 export const renamePhoto = async (req: AuthRequest, res: Response) => {
   try {

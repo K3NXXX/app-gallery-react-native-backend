@@ -82,11 +82,17 @@ export const deleteAlbum = async (req: AuthRequest, res: Response) => {
 				.json({ message: 'You do not have permission to delete this album.' })
 		}
 
+		await prisma.albumPhoto.deleteMany({
+			where: { albumId: Number(albumId) },
+		})
+
 		await prisma.album.delete({
 			where: { id: Number(albumId) },
 		})
 
-		return res.status(200).json({ message: 'Album deleted successfully.' })
+		return res
+			.status(200)
+			.json({ message: 'Album and associated photos deleted successfully.' })
 	} catch (error) {
 		console.error('Error deleting album:', error)
 		return res.status(500).json({ message: 'Error deleting album.' })
@@ -99,7 +105,9 @@ export const updateAlbum = async (req: AuthRequest, res: Response) => {
 		const userId = req.userId
 
 		if (!userId || !albumId) {
-			return res.status(400).json({ message: 'User ID and Album ID are required.' })
+			return res
+				.status(400)
+				.json({ message: 'User ID and Album ID are required.' })
 		}
 
 		const album = await prisma.album.findUnique({
@@ -116,7 +124,6 @@ export const updateAlbum = async (req: AuthRequest, res: Response) => {
 				.json({ message: 'You do not have permission to update this album.' })
 		}
 
-		// Update the album with the provided data
 		const updatedAlbum = await prisma.album.update({
 			where: { id: Number(albumId) },
 			data: {
@@ -138,47 +145,63 @@ export const updateAlbum = async (req: AuthRequest, res: Response) => {
 
 export const addPhotosToAlbum = async (req: AuthRequest, res: Response) => {
 	try {
-		const userId = req.userId
-		const { albumId, photoIds } = req.body 
-
-		if (!userId || !albumId || !Array.isArray(photoIds)) {
-			return res
-				.status(400)
-				.json({ message: 'User ID, album ID та масив photoIds обовʼязкові.' })
-		}
-
-		const album = await prisma.album.findUnique({
-			where: { id: Number(albumId) },
-		})
-
-		if (!album || album.userId !== Number(userId)) {
-			return res
-				.status(403)
-				.json({ message: 'Ви не маєте доступу до цього альбому.' })
-		}
-
-		const photosToAdd = photoIds.map((photoId: number) => ({
-			albumId: Number(albumId),
-			photoId,
-		}))
-
+	  const userId = req.userId
+	  const { albumId, albumIds, photoIds, isCover } = req.body
+  
+	  if (!userId || (!albumId && !albumIds) || !Array.isArray(photoIds)) {
+		return res.status(400).json({ message: 'User ID, albumId/albumIds, and photoIds are required.' })
+	  }
+  
+	  const albumsToAdd = Array.isArray(albumIds) ? albumIds : [albumId]
+  
+	  const albums = await prisma.album.findMany({
+		where: {
+		  id: { in: albumsToAdd },
+		  userId: Number(userId),
+		},
+	  })
+  
+	  if (albums.length !== albumsToAdd.length) {
+		return res.status(403).json({ message: 'You do not have access to all of the albums.' })
+	  }
+  
+	  const photosToAdd = photoIds.map((photoId: number) => ({
+		photoId,
+	  }))
+  
+	  for (let album of albums) {
 		await prisma.albumPhoto.createMany({
-			data: photosToAdd,
-			skipDuplicates: true, 
+		  data: photosToAdd.map((photo: any) => ({
+			albumId: album.id,
+			photoId: photo.photoId,
+		  })),
+		  skipDuplicates: true,
 		})
-
-		return res
-			.status(200)
-			.json({ message: 'Фотографії успішно додані до альбому!' })
+  
+		if (isCover && !album.imageUrl && photoIds.length > 0) {
+		  const firstPhotoId = photoIds[0]
+		  const firstPhoto = await prisma.photo.findUnique({
+			where: { id: firstPhotoId },
+		  })
+  
+		  if (firstPhoto) {
+			await prisma.album.update({
+			  where: { id: album.id },
+			  data: { imageUrl: firstPhoto.url },
+			})
+		  }
+		}
+	  }
+  
+	  return res.status(200).json({ message: 'Photos successfully added to albums!' })
 	} catch (error) {
-		console.error('Помилка при додаванні фото до альбому:', error)
-		return res
-			.status(500)
-			.json({ message: 'Помилка при додаванні фото до альбому.' })
+	  console.error('Error during adding photos to albums:', error)
+	  return res.status(500).json({ message: 'Error during adding photos to albums.' })
 	}
-}
+  }
+  
 
-export const getAlbumPhotos = async (req: AuthRequest, res: Response) => {
+export const getOneAlbum = async (req: AuthRequest, res: Response) => {
 	try {
 		const userId = req.userId
 		const { albumId } = req.body
@@ -186,7 +209,61 @@ export const getAlbumPhotos = async (req: AuthRequest, res: Response) => {
 		if (!userId || !albumId) {
 			return res
 				.status(400)
-				.json({ message: 'User ID and album ID required.' })
+				.json({ message: 'User ID and album ID are required.' })
+		}
+
+		const album = await prisma.album.findUnique({
+			where: { id: Number(albumId) },
+			include: {
+				photos: {
+					include: {
+						photo: true,
+					},
+				},
+			},
+		})
+
+		if (!album) {
+			return res.status(404).json({ message: 'Album not found.' })
+		}
+
+		if (album.userId !== Number(userId)) {
+			return res
+				.status(403)
+				.json({ message: 'You do not have access to this album.' })
+		}
+
+		const photos = album.photos.map(p => p.photo)
+
+		return res.status(200).json({
+			album: {
+				id: album.id,
+				name: album.name,
+				description: album.description,
+				imageUrl: album.imageUrl,
+				photos,
+			},
+		})
+	} catch (error) {
+		console.error('Error fetching album:', error)
+		return res.status(500).json({ message: 'Error fetching album.' })
+	}
+}
+
+export const removePhotosFromAlbum = async (
+	req: AuthRequest,
+	res: Response
+) => {
+	try {
+		const userId = req.userId
+		const { albumId, photoIds } = req.body
+
+		console.log(req.body)
+
+		if (!userId || !albumId) {
+			return res
+				.status(400)
+				.json({ message: 'User ID, album ID, and photoIds are required.' })
 		}
 
 		const album = await prisma.album.findUnique({
@@ -196,27 +273,29 @@ export const getAlbumPhotos = async (req: AuthRequest, res: Response) => {
 		if (!album || album.userId !== Number(userId)) {
 			return res
 				.status(403)
-				.json({ message: 'Ви не маєте доступу до цього альбому.' })
+				.json({ message: 'You do not have access to this album.' })
 		}
 
-		const albumWithPhotos = await prisma.album.findUnique({
-			where: { id: Number(albumId) },
-			include: {
-				photos: {
-					include: {
-						photo: true, 
-					},
-				},
+		const deleteResult = await prisma.albumPhoto.deleteMany({
+			where: {
+				albumId: Number(albumId),
+				photoId: { in: photoIds.map((id: number) => Number(id)) },
 			},
 		})
 
-		const photos = albumWithPhotos?.photos.map(p => p.photo)
+		if (deleteResult.count === 0) {
+			return res
+				.status(404)
+				.json({ message: 'No matching photos found in this album.' })
+		}
 
-		return res.status(200).json(photos)
+		return res.status(200).json({
+			message: `Removed ${deleteResult.count} photo(s) from album successfully.`,
+		})
 	} catch (error) {
-		console.error('Помилка при отриманні фото альбому:', error)
+		console.error('Error removing photos from album:', error)
 		return res
 			.status(500)
-			.json({ message: 'Не вдалося отримати фотографії альбому.' })
+			.json({ message: 'Error removing photos from album.' })
 	}
 }

@@ -3,8 +3,9 @@ import {
 	addPhotosToAlbum,
 	createAlbum,
 	deleteAlbum,
-	getAlbumPhotos,
 	getAllAlbums,
+	getOneAlbum,
+	removePhotosFromAlbum,
 	updateAlbum,
 } from '../controllers/albumsController.js'
 import { checkAuth } from '../middleware/checkAuth.js'
@@ -27,6 +28,12 @@ router.put('/updateAlbum', checkAuth, updateAlbum)
 router.post('/addPhotoToAlbum', checkAuth, addPhotosToAlbum)
 
 //@ts-ignore
-router.post('/getAlbumPhotos', checkAuth, getAlbumPhotos)
+// router.post('/getAlbumPhotos', checkAuth, getAlbumPhotos)
+
+//@ts-ignore
+router.post('/deletePhotoFromAlbum', checkAuth, removePhotosFromAlbum)
+
+//@ts-ignore
+router.post('/getOneAlbum', checkAuth, getOneAlbum)
 
 export default router
