@@ -63,7 +63,7 @@ model Album {
 
 model AlbumPhoto {
   albumId Int
-  photoId Int
+  photoId Int  
   isCover Boolean @default(false)
   album   Album   @relation(fields: [albumId], references: [id])
   photo   Photo   @relation(fields: [photoId], references: [id])
