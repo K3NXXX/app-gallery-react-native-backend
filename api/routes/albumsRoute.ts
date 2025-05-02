@@ -27,13 +27,13 @@ router.put('/updateAlbum', checkAuth, updateAlbum)
 //@ts-ignore
 router.post('/addPhotoToAlbum', checkAuth, addPhotosToAlbum)
 
-//@ts-ignore
-// router.post('/getAlbumPhotos', checkAuth, getAlbumPhotos)
 
 //@ts-ignore
 router.post('/deletePhotoFromAlbum', checkAuth, removePhotosFromAlbum)
 
 //@ts-ignore
 router.post('/getOneAlbum', checkAuth, getOneAlbum)
+
+
 
 export default router

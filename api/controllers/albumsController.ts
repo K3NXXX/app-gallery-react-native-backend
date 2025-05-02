@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 
 export const createAlbum = async (req: AuthRequest, res: Response) => {
 	try {
-		const { name, description, imageUrl, isCover } = req.body
+		const { name, description, imageUrl } = req.body
 		const userId = req.userId
 
 		if (!userId || !name) {
@@ -145,80 +145,82 @@ export const updateAlbum = async (req: AuthRequest, res: Response) => {
 
 export const addPhotosToAlbum = async (req: AuthRequest, res: Response) => {
 	try {
-	  const userId = req.userId;
-	  const { albumId, albumIds, photoIds } = req.body;
-  
-	  if (!userId || (!albumId && !albumIds) || !Array.isArray(photoIds)) {
-		return res.status(400).json({ message: 'User ID, albumId/albumIds, and photoIds are required.' });
-	  }
-  
-	  const albumsToAdd = Array.isArray(albumIds) ? albumIds : [albumId];
-  
-	  const albums = await prisma.album.findMany({
-		where: {
-		  id: { in: albumsToAdd },
-		  userId: Number(userId),
-		},
-	  });
-  
-	  if (albums.length !== albumsToAdd.length) {
-		return res.status(403).json({ message: 'You do not have access to all of the albums.' });
-	  }
-  
-	  for (let album of albums) {
-		// Add photos to the album
-		await prisma.albumPhoto.createMany({
-		  data: photoIds.map((photoId: number) => ({
-			albumId: album.id,
-			photoId,
-		  })),
-		  skipDuplicates: true,
-		});
-  
-		// Check if there is already a cover
-		const existingCover = await prisma.albumPhoto.findFirst({
-		  where: {
-			albumId: album.id,
-			isCover: true,
-		  },
-		});
-  
-		// If no cover exists and photoIds is not empty, set the first photo as the cover
-		if (!existingCover && photoIds.length > 0) {
-		  const firstPhotoId = photoIds[0];
-  
-		  const firstPhoto = await prisma.photo.findUnique({
-			where: { id: firstPhotoId },
-		  });
-  
-		  if (firstPhoto) {
-			// Update the album's cover image URL
-			await prisma.album.update({
-			  where: { id: album.id },
-			  data: { imageUrl: firstPhoto.url },
-			});
-  
-			// Update the albumPhoto relation to set isCover to true
-			await prisma.albumPhoto.updateMany({
-			  where: {
-				albumId: album.id,
-				photoId: firstPhotoId,
-			  },
-			  data: { isCover: true },
-			});
-		  }
+		const userId = req.userId
+		const { albumId, albumIds, photoIds } = req.body
+
+		if (!userId || (!albumId && !albumIds) || !Array.isArray(photoIds)) {
+			return res
+				.status(400)
+				.json({
+					message: 'User ID, albumId/albumIds, and photoIds are required.',
+				})
 		}
-	  }
-  
-	  return res.status(200).json({ message: 'Photos successfully added to albums!' });
+
+		const albumsToAdd = Array.isArray(albumIds) ? albumIds : [albumId]
+
+		const albums = await prisma.album.findMany({
+			where: {
+				id: { in: albumsToAdd },
+				userId: Number(userId),
+			},
+		})
+
+		if (albums.length !== albumsToAdd.length) {
+			return res
+				.status(403)
+				.json({ message: 'You do not have access to all of the albums.' })
+		}
+
+		for (let album of albums) {
+			await prisma.albumPhoto.createMany({
+				data: photoIds.map((photoId: number) => ({
+					albumId: album.id,
+					photoId,
+				})),
+				skipDuplicates: true,
+			})
+
+			const existingCover = await prisma.albumPhoto.findFirst({
+				where: {
+					albumId: album.id,
+					isCover: true,
+				},
+			})
+
+			if (!existingCover && photoIds.length > 0) {
+				const firstPhotoId = photoIds[0]
+
+				const firstPhoto = await prisma.photo.findUnique({
+					where: { id: firstPhotoId },
+				})
+
+				if (firstPhoto) {
+					await prisma.album.update({
+						where: { id: album.id },
+						data: { imageUrl: firstPhoto.url },
+					})
+
+					await prisma.albumPhoto.updateMany({
+						where: {
+							albumId: album.id,
+							photoId: firstPhotoId,
+						},
+						data: { isCover: true },
+					})
+				}
+			}
+		}
+
+		return res
+			.status(200)
+			.json({ message: 'Photos successfully added to albums!' })
 	} catch (error) {
-	  console.error('Error during adding photos to albums:', error);
-	  return res.status(500).json({ message: 'Error during adding photos to albums.' });
+		console.error('Error during adding photos to albums:', error)
+		return res
+			.status(500)
+			.json({ message: 'Error during adding photos to albums.' })
 	}
-  };
-  
-  
-  
+}
 
 export const getOneAlbum = async (req: AuthRequest, res: Response) => {
 	try {
@@ -293,7 +295,6 @@ export const removePhotosFromAlbum = async (
 				.json({ message: 'You do not have access to this album.' })
 		}
 
-		// Перевіряємо, чи видаляється обкладинка
 		const isCover = await prisma.albumPhoto.findFirst({
 			where: {
 				albumId: Number(albumId),
@@ -302,7 +303,6 @@ export const removePhotosFromAlbum = async (
 			},
 		})
 
-		// Видаляємо зв’язок
 		const deleteResult = await prisma.albumPhoto.deleteMany({
 			where: {
 				albumId: Number(albumId),
@@ -316,16 +316,13 @@ export const removePhotosFromAlbum = async (
 				.json({ message: 'No matching photo found in this album.' })
 		}
 
-		// Якщо видалене фото було обкладинкою
 		if (isCover) {
-			// Пробуємо знайти інше фото, яке можна поставити як нову обкладинку
 			const anotherPhoto = await prisma.albumPhoto.findFirst({
 				where: { albumId: Number(albumId) },
 				include: { photo: true },
 			})
 
 			if (anotherPhoto?.photo?.url) {
-				// Оновлюємо album з новою обкладинкою
 				await prisma.album.update({
 					where: { id: Number(albumId) },
 					data: {
@@ -333,7 +330,6 @@ export const removePhotosFromAlbum = async (
 					},
 				})
 
-				// Встановлюємо isCover: true для нового фото
 				await prisma.albumPhoto.update({
 					where: {
 						albumId_photoId: {
@@ -344,7 +340,6 @@ export const removePhotosFromAlbum = async (
 					data: { isCover: true },
 				})
 			} else {
-				// Якщо більше немає фото — очищаємо обкладинку
 				await prisma.album.update({
 					where: { id: Number(albumId) },
 					data: {
@@ -360,11 +355,6 @@ export const removePhotosFromAlbum = async (
 		})
 	} catch (error) {
 		console.error('Error removing photo from album:', error)
-		return res
-			.status(500)
-			.json({ message: 'Error removing photo from album.' })
+		return res.status(500).json({ message: 'Error removing photo from album.' })
 	}
 }
-
-
-
