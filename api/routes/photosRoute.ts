@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { addPhoto, deletePhoto, getAllPhotos, renamePhoto, addTagsToPhoto } from '../controllers/photosController.js'
+import { addPhoto, deletePhoto, getAllPhotos, renamePhoto, addTagsToPhoto, deleteTagFromPhoto } from '../controllers/photosController.js'
 import { checkAuth } from '../middleware/checkAuth.js'
 
 const router = Router()
@@ -18,5 +18,8 @@ router.put('/renamePhoto', checkAuth, renamePhoto)
 
 //@ts-ignore
 router.post('/addTagsToPhoto', checkAuth, addTagsToPhoto)
+
+//@ts-ignore
+router.post('/deleteTagFromPhoto', checkAuth, deleteTagFromPhoto)
 
 export default router

@@ -61,6 +61,7 @@ export const getAllPhotos = async (req: AuthRequest, res: Response) => {
 			...photo,
 			hashtags: photo.hashtags.map(ph => ph.hashtag),
 		}))
+		
 		return res.status(200).json(photosWithTags)
 	} catch (error) {
 		console.error('Error fetching photos:', error)
@@ -102,6 +103,10 @@ export const deletePhoto = async (req: AuthRequest, res: Response) => {
 		}
 
 		await prisma.favourite.deleteMany({
+			where: { photoId: Number(photoId) },
+		})
+
+		await prisma.photoHashtag.deleteMany({
 			where: { photoId: Number(photoId) },
 		})
 
@@ -206,7 +211,7 @@ export const addTagsToPhoto = async (req: AuthRequest, res: Response) => {
 			})
 		}
 
-		// 3. Link tags to the photo
+	
 		await prisma.photoHashtag.createMany({
 			data: tagRecords,
 			skipDuplicates: true,
@@ -216,5 +221,66 @@ export const addTagsToPhoto = async (req: AuthRequest, res: Response) => {
 	} catch (error) {
 		console.error('Error adding tags:', error)
 		return res.status(500).json({ message: 'Error adding tags to photo.' })
+	}
+}
+
+
+export const deleteTagFromPhoto = async (req: AuthRequest, res: Response) => {
+	try {
+		const { photoId, hashtagId } = req.body
+		const userId = req.userId
+
+		if (!photoId || !hashtagId) {
+			return res.status(400).json({ message: 'Photo ID and hashtag ID are required.' })
+		}
+
+		const photo = await prisma.photo.findUnique({
+			where: { id: Number(photoId) },
+		})
+
+		if (!photo) {
+			return res.status(404).json({ message: 'Photo not found.' })
+		}
+
+		if (photo.userId !== Number(userId)) {
+			return res.status(403).json({
+				message: 'You are not authorized to remove tags from this photo.',
+			})
+		}
+
+		const hashtag = await prisma.hashtag.findUnique({
+			where: { id: Number(hashtagId) },
+		})
+
+		if (!hashtag) {
+			return res.status(404).json({ message: 'Hashtag not found.' })
+		}
+
+		const photoHashtag = await prisma.photoHashtag.findUnique({
+			where: {
+				photoId_hashtagId: {
+					photoId: Number(photoId),
+					hashtagId: Number(hashtagId),
+				},
+			},
+		})
+
+		if (!photoHashtag) {
+			return res.status(404).json({ message: 'Tag not associated with this photo.' })
+		}
+
+		await prisma.photoHashtag.delete({
+			where: {
+				photoId_hashtagId: {
+					photoId: Number(photoId),
+					hashtagId: Number(hashtagId),
+				},
+			},
+		})
+
+		return res.status(200).json({ message: 'Tag removed successfully.' })
+	} catch (error) {
+		console.error('Error removing tag:', error)
+		return res.status(500).json({ message: 'Error removing tag from photo.' })
 	}
 }
